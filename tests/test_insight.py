@@ -73,5 +73,18 @@ async def main():
         import traceback
         print(traceback.format_exc())
 
+# Test query efficiency
+        print("\nTesting query efficiency...")
+        for title, query in queries.items():
+            print(f"\n{title} Efficiency Metrics:")
+            efficiency_metrics = insight.evaluate_query_efficiency(query)
+            print(efficiency_metrics)
+        
+        # Test query validation
+        print("\nTesting query validation...")
+        for title, query in queries.items():
+            is_valid = insight.validate_sql_query(query)
+            print(f"\n{title} is valid: {is_valid}")
+            
 if __name__ == "__main__":
     asyncio.run(main())

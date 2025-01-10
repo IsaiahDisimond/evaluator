@@ -4,6 +4,8 @@ from services.malay2sql_service import Malay2SQLService
 from typing import Dict, Any
 import logging
 import datetime
+import time
+import sqlalchemy as sa
 
 class Insight:
     def __init__(self, db_url: str, openai_api_key: str, cache_client=None):
@@ -211,6 +213,54 @@ class Insight:
                 "salary": {"data_type": "Float64", "description": "Faculty member's salary"}
             }
         }
+    
+    def evaluate_query_efficiency(self, sql_query: str) -> Dict[str, Any]:
+        """Evaluate the efficiency of a SQL query."""
+        efficiency_metrics = {}
+        try:
+            # Measure execution time
+            start_time = time.time()
+            with self.engine.connect() as conn:
+                result = conn.execute(sa.text(sql_query))
+                execution_time = time.time() - start_time
+                efficiency_metrics['execution_time'] = execution_time
+
+                # Analyze query plan
+                query_plan = conn.execute(sa.text(f"EXPLAIN {sql_query}")).fetchall()
+                efficiency_metrics['query_plan'] = query_plan
+
+                # Check index usage
+                index_usage = any("INDEX" in str(row) for row in query_plan)
+                efficiency_metrics['index_usage'] = index_usage
+
+                # Get result size
+                result_size = len(result.fetchall())
+                efficiency_metrics['result_size'] = result_size
+
+                # Compare with golden query
+                golden_query = self.malay2sql_service.golden_query
+                similarity_score = golden_query.calculate_cosine_similarity(sql_query)
+                efficiency_metrics['similarity_to_golden_query'] = similarity_score
+
+        except Exception as e:
+            self.logger.error(f"Error evaluating query efficiency: {e}")
+            efficiency_metrics['error'] = str(e)
+
+        return efficiency_metrics
+
+    def validate_sql_query(self, sql_query: str) -> bool:
+        """Validate if the SQL query is correct and functional."""
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(sa.text(sql_query))
+            return True
+        except Exception as e:
+            self.logger.error(f"Invalid SQL query: {e}")
+            return False
+
+# Example usage:
+# insight = Insight(db_url="your_database_url", openai_api_key="your_openai_api_key")
+# trends_df = await insight.get_top_trends()
 
 # Example usage:
 # insight = Insight(db_url="your_database_url", openai_api_key="your_openai_api_key")
